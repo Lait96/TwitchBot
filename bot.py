@@ -2,7 +2,6 @@ from twitchio.ext import commands
 from utils import Utils
 import config
 
-
 bot = commands.Bot(
     token=config.PASS,
     client_id=config.SECRET,
@@ -11,26 +10,11 @@ bot = commands.Bot(
     initial_channels=config.CHAN
 )
 
-in_duel = False
-duel_login = ''
-
 
 @bot.command(name='дуэль')
-async def duel1(ctx):
-    global in_duel, duel_login
-    login = utils.get_login(ctx)
-    if duel_login == login:
-        await ctx.send(f"@{login} вызов уже брошен! Ожидайте оппонента!")
-    elif in_duel:
-        txt, log = utils.get_random_duel([login, duel_login])
-        in_duel = False
-        duel_login = ''
-        print(log)
-        await ctx.send(txt)
-    else:
-        duel_login = login
-        in_duel = True
-        await ctx.send(f"@{login} объявил дуэль на орехомётах. Напиши !дуэль чтобы принять его вызов")
+async def duel(ctx):
+    txt = utils.duel(ctx)
+    await ctx.send(txt)
 
 
 @bot.command(name='кусь')
