@@ -1,6 +1,7 @@
 from twitchio.ext import commands
+from utils import Utils
 import config
-import utils
+
 
 bot = commands.Bot(
     token=config.PASS,
@@ -34,10 +35,10 @@ async def duel1(ctx):
 
 @bot.command(name='кусь')
 async def bite(ctx):
-    txt, log = utils.random_bite(ctx)
-    print(log)
+    txt = utils.bite(ctx)
     await ctx.send(txt)
 
 
 if __name__ == "__main__":
+    utils = Utils(config.CHAN[0])
     bot.run()

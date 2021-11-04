@@ -1,68 +1,56 @@
 import requests
-import config
-from random import shuffle, choice
+from random import choice
+from datetime import datetime
+from BotList import BotSet
 
 
-def get_random_users(channel, login):
-    users = requests.get(f'https://tmi.twitch.tv/group/user/{channel}/chatters')
-    print(users)
-    users = users.json()
+class Utils:
+    def __init__(self, channel):
+        self.channel = channel
+        self.users_list, self.users_upload_time = self.get_users()
+        self.in_duel = False
+        self.duel_login = ''
 
-    def flatten(x):
-        result = []
-        for el in x:
-            if hasattr(el, "__iter__") and not isinstance(el, str):
-                result.extend(flatten(el))
+    def get_users(self):
+        lst = requests.get(f'https://tmi.twitch.tv/group/user/{self.channel}/chatters')
+        lst = lst.json()['chatters'].values()
+        users_list = set()
+        for el in lst:
+            if isinstance(el, list):
+                for el_lst in el:
+                    users_list.add(el_lst)
             else:
-                result.append(el)
-        return result
+                users_list.add(el)
+        users_list = users_list - BotSet
+        print(users_list)
+        return list(users_list), datetime.now()
 
-    lis = []
-    lis.extend(users['chatters'].values())
-    users_list = list(flatten(lis))
-    shuffle(users_list)
-    while True:
-        if users_list[0] == login:
-            shuffle(users_list)
-        else:
-            break
-    return users_list[0]
+    @staticmethod
+    def get_login(ctx):
+        info = dict(item.split("=") for item in ctx.message.raw_data.split(";"))
+        print(info['user-type'][info['user-type'].find('PRIVMSG')::],
+              info['badges'])
+        return str(info['display-name']).lower()
 
+    def get_random_user(self, user=None):
+        if (datetime.now() - self.users_upload_time).seconds > 60:
+            self.users_list, self.users_upload_time = self.get_users()
+        users = list(set(self.users_list) - {user})
+        random_user = choice(users)
+        return random_user
 
-def get_login(ctx):
-    info = dict(item.split("=") for item in ctx.message.raw_data.split(";"))
-    print(info)
-    return str(info['display-name']).lower()
-
-
-def random_bite(ctx):
-    login = get_login(ctx)
-    while True:
-        random_login = get_random_users(config.CHAN[0], login)
-        if random_login != login:
-            break
-    speak = [f'@{login} кусает за жепку {random_login}',
-             f'@{login} внезапно кусает @{random_login} за ухо',
-             f'@{login} делает нежный кусь @{random_login}',
-             f'@{login} прыгает на @{random_login} и кусает за шею',
-             f'@{login} совершает мега кусь за локоть @{random_login}',
-             f'@{login} совершает множественный кусь @{random_login}']
-    log = f'Внимание хозяин!\n{login} укусил {random_login}'
-    txt = choice(speak)
-    return txt, log
-
-
-def get_random_duel(lst):
-    shuffle(lst)
-    win, lus = lst
-    speak = [f'@{win} выхватывает свой орехомёт и стреляет в @{lus}. Есть, точное попадание! @{lus} повержен',
-             f'{win} безжалостно расстрелял орехами {lus}',
-             f'@{lus} промахивается. Тем временем @{win} делает точный выстрел, @{lus} повержен',
-             f'@{win} промахивается, чем же ответит @{lus}? Тоже промах? Что же, в этой схватке нет победителей',
-             f'Оба дуэлянта,@{win} и @{lus}, выстрелили одновременно и поразили друг друга. В этой схватке проиграли оба участника!']
-    txt = choice(speak)
-    if 'победителей' in txt or 'проиграли' in txt:
-        log = f'Внимание хозяин!\n{win} и {lus} стреляются\nУ них ничья!'
-    else:
-        log = f'Внимание хозяин!\n{win} застрелил {lus}'
-    return txt, log
+    def bite(self, ctx):
+        biting = self.get_login(ctx)
+        victim = self.get_random_user(user=biting)
+        if victim == 'madvaverkabot':
+            return f'@{biting} хотел меня укусить, но я успешно увернулась. ' \
+                   f'@{biting} нельзя кусать бота!'
+        phrases = [f'@{biting} кусает за жепку {victim}',
+                   f'@{biting} внезапно кусает @{victim} за ухо',
+                   f'@{biting} делает нежный кусь @{victim}',
+                   f'@{biting} прыгает на @{victim} и кусает за шею',
+                   f'@{biting} совершает мега кусь за локоть @{victim}',
+                   f'@{biting} совершает множественный кусь @{victim}']
+        print(f'Внимание хозяин!\n{biting} укусил {victim}')
+        txt = choice(phrases)
+        return txt

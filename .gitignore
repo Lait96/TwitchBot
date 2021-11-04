@@ -1,0 +1,10 @@
+.idea
+__pycache__
+Include
+Lib
+Scripts
+config.py
+pyvenv.cfg
+test3.py
+test2.py
+test.py
