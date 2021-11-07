@@ -1,3 +1,6 @@
+import pickle
+
+
 BotSet = {'anotherttvviewer',
           'lillyredwolf',
           'commanderroot',
@@ -116,4 +119,9 @@ BotSet = {'anotherttvviewer',
           'afridwise2282',
           'cneacarrah3003',
           'bandsan6780',
-          'lanarayyyy'}
+          'lanarayyyy',
+          'brokemystreamdeck'}
+
+with open('BotSet.pickle', 'rb') as f:
+   data_new = pickle.load(f)
+print(data_new)

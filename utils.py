@@ -1,15 +1,17 @@
 import requests
+import FileManager
 from random import choice, shuffle
 from datetime import datetime
-from BotList import BotSet
 
 
 class Utils:
     def __init__(self, channel):
         self.channel = channel
+        self.BotSet = FileManager.GetBotSet()
         self.users_list, self.users_upload_time = self.get_users()
         self.in_duel = False
         self.duel_login = ''
+        self.duel_top = FileManager.GetTop()
 
     def get_users(self):
         lst = requests.get(f'https://tmi.twitch.tv/group/user/{self.channel}/chatters')
@@ -17,16 +19,20 @@ class Utils:
         users_list = []
         for el in lst:
             users_list.extend(el)
-        users_list = list(set(users_list) - BotSet)
+        users_list = list(set(users_list) - self.BotSet)
         print(f'Список пользователей чата обновлён\n{users_list}')
         return users_list, datetime.now()
 
     @staticmethod
-    def get_login(ctx):
+    def get_login(ctx, mess=False):
         info = dict(item.split("=") for item in ctx.message.raw_data.split(";"))
-        print(info['user-type'][info['user-type'].find('PRIVMSG')::],
+        nick = str(info['display-name']).lower()
+        print(nick, info['user-type'][info['user-type'].find('PRIVMSG')::],
               info['badges'])
-        return str(info['display-name']).lower()
+        if mess:
+            message = info['user-type']
+            return nick, message
+        return nick
 
     def get_random_user(self, user=None):
         if (datetime.now() - self.users_upload_time).seconds > 60:
@@ -52,8 +58,7 @@ class Utils:
         print(f'Внимание хозяин!\n{biting} укусил {victim}')
         return txt
 
-    def duel(self, ctx):
-        login = self.get_login(ctx)
+    def duel(self, login):
         if self.duel_login == login:
             txt = f"@{login} вызов уже брошен! Ожидайте оппонента!"
         elif self.in_duel:
@@ -70,10 +75,64 @@ class Utils:
             txt = choice(phrases)
             if 'победителей' in txt or 'проиграли' in txt:
                 print(f'Внимание хозяин!\n{duel_users[0]} и {duel_users[1]} стреляются\nУ них ничья!')
+                self.update_duel_top(duel_users, [1, 1, 0, 0])
             else:
                 print(f'Внимание хозяин!\n{duel_users[0]} застрелил {duel_users[1]}')
+                self.update_duel_top(duel_users, [1, 1, 1, 0])
         else:
             self.duel_login = login
             self.in_duel = True
             txt = f"@{login} объявил дуэль на орехомётах. Напиши !дуэль чтобы принять его вызов"
         return txt
+
+    def update_duel_top(self, logins: list, score: list):
+        if logins[0] not in self.duel_top:
+            self.duel_top[logins[0]] = {'Дуэлей': 0, 'Побед': 0}
+        if logins[1] not in self.duel_top:
+            self.duel_top[logins[1]] = {'Дуэлей': 0, 'Побед': 0}
+        for i in range(4):
+            self.duel_top[logins[i % 2]]['Дуэлей' if i <= 1 else 'Побед'] += score[i]
+        FileManager.WriteTop(self.duel_top)
+        print('Топ дуэли обновлён')
+
+    def duel_top3(self):
+        top3 = sorted(self.duel_top, key=lambda x: (self.duel_top[x]['Побед'],
+                                                    self.duel_top[x]['Дуэлей']),
+                      reverse=True)[0:4]
+        result = ''
+        for i in top3:
+            txt = f'@{i} - Дуэлей: {self.duel_top[i]["Дуэлей"]}, Побед - {self.duel_top[i]["Побед"]}\n'
+            result += txt
+        return result
+
+    def duel_statistic(self, login):
+        if login in self.duel_top:
+            return f'@{login} - Дуэлей: {self.duel_top[login]["Дуэлей"]}, Побед: {self.duel_top[login]["Побед"]}'
+        else:
+            return f'@{login} Не участвовал в дуэлях'
+
+    def duel_crossroads(self, ctx):
+        login, message = self.get_login(ctx, mess=True)
+        if 'топ3' in message:
+            return self.duel_top3()
+        elif 'статистика' in message:
+            return self.duel_statistic(login)
+        else:
+            return self.duel(login)
+
+    def UserException(self, ctx):
+        login, message = self.get_login(ctx, mess=True)
+        if login == 'laitru':
+            if ':!удоли' in message:
+                user_exception = message[message.find('и') + 3::]
+                self.BotSet = self.BotSet - set(user_exception)
+                FileManager.WriteBotSet(self.BotSet)
+                print(f'@{user_exception} удалён, файл обновлен')
+                return f'Сделанно, @{user_exception} удалён из списка логинов-исключений'
+            if ':!добавь' in message:
+                user_exception = message[message.find('ь') + 3::]
+                self.BotSet.add(user_exception)
+                FileManager.WriteBotSet(self.BotSet)
+                print(f'@{user_exception} добавлен, файл обновлен')
+                return f'Сделанно, @{user_exception} добавлен в список логинов-исключений'
+        return f'Sorry, @{login}, это системная команда'

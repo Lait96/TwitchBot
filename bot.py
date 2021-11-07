@@ -13,13 +13,25 @@ bot = commands.Bot(
 
 @bot.command(name='дуэль')
 async def duel(ctx):
-    txt = utils.duel(ctx)
+    txt = utils.duel_crossroads(ctx)
     await ctx.send(txt)
 
 
 @bot.command(name='кусь')
 async def bite(ctx):
     txt = utils.bite(ctx)
+    await ctx.send(txt)
+
+
+@bot.command(name='удоли')
+async def UserException(ctx):
+    txt = utils.UserException(ctx)
+    await ctx.send(txt)
+
+
+@bot.command(name='добавь')
+async def UserException(ctx):
+    txt = utils.UserException(ctx)
     await ctx.send(txt)
 
 
