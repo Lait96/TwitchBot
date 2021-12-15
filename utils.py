@@ -1,42 +1,24 @@
-import requests
 import FileManager
-from random import choice, shuffle
-from datetime import datetime
+from random import choice, shuffle, randint
 
 
 class Utils:
     def __init__(self, channel):
         self.channel = channel
-        self.BotSet = FileManager.GetBotSet()
-        self.users_list, self.users_upload_time = self.get_users()
         self.in_duel = False
         self.duel_login = ''
+        self.users_list = [channel]
         self.duel_top = FileManager.GetTop()
-
-    def get_users(self):
-        lst = requests.get(f'https://tmi.twitch.tv/group/user/{self.channel}/chatters')
-        lst = lst.json()['chatters'].values()
-        users_list = []
-        for el in lst:
-            users_list.extend(el)
-        users_list = list(set(users_list) - self.BotSet)
-        print(f'Список пользователей чата обновлён\n{users_list}')
-        return users_list, datetime.now()
 
     @staticmethod
     def get_login(ctx, mess=False):
-        info = dict(item.split("=") for item in ctx.message.raw_data.split(";"))
-        nick = str(info['display-name']).lower()
-        print(nick, info['user-type'][info['user-type'].find('PRIVMSG')::],
-              info['badges'])
+        nick = ctx.author.name
         if mess:
-            message = info['user-type']
+            message = ctx.message.content
             return nick, message
         return nick
 
     def get_random_user(self, user=None):
-        if (datetime.now() - self.users_upload_time).seconds > 60:
-            self.users_list, self.users_upload_time = self.get_users()
         users = list(set(self.users_list) - {user})
         random_user = choice(users)
         return random_user
@@ -44,17 +26,15 @@ class Utils:
     def bite(self, ctx):
         biting = self.get_login(ctx)
         victim = self.get_random_user(user=biting)
-        if victim == 'madvaverkabot':
-            txt = f'@{biting} хотел меня укусить, но я успешно увернулась. ' \
-                  f'@{biting} нельзя кусать бота!'
-        else:
-            phrases = [f'@{biting} кусает за жепку {victim}',
-                       f'@{biting} внезапно кусает @{victim} за ухо',
-                       f'@{biting} делает нежный кусь @{victim}',
-                       f'@{biting} прыгает на @{victim} и кусает за шею',
-                       f'@{biting} совершает мега кусь за локоть @{victim}',
-                       f'@{biting} совершает множественный кусь @{victim}']
-            txt = choice(phrases)
+
+        phrases = [f'@{biting} кусает за жепку {victim}',
+                   f'@{biting} внезапно кусает @{victim} за ухо',
+                   f'@{biting} делает нежный кусь @{victim}',
+                   f'@{biting} прыгает на @{victim} и кусает за шею',
+                   f'@{biting} совершает мега кусь за локоть @{victim}',
+                   f'@{biting} совершает множественный кусь @{victim}']
+        txt = choice(phrases)
+
         print(f'Внимание хозяин!\n{biting} укусил {victim}')
         return txt
 
@@ -66,13 +46,14 @@ class Utils:
             shuffle(duel_users)
             self.in_duel = False
             self.duel_login = ''
-            phrases = [
+            phrases_win = [
                 f'@{duel_users[0]} выхватывает свой орехомёт и стреляет в @{duel_users[1]}. Есть, точное попадание! @{duel_users[1]} повержен',
                 f'{duel_users[0]} безжалостно расстрелял орехами {duel_users[1]}',
-                f'@{duel_users[1]} промахивается. Тем временем @{duel_users[0]} делает точный выстрел, @{duel_users[1]} повержен',
+                f'@{duel_users[1]} промахивается. Тем временем @{duel_users[0]} делает точный выстрел, @{duel_users[1]} повержен']
+            phrases_draw = [
                 f'@{duel_users[0]} промахивается, чем же ответит @{duel_users[1]}? Тоже промах? Что же, в этой схватке нет победителей',
                 f'Оба дуэлянта, @{duel_users[0]} и @{duel_users[1]}, выстрелили одновременно и поразили друг друга. В этой схватке проиграли оба участника!']
-            txt = choice(phrases)
+            txt = choice(phrases_win if randint(0, 10) != 1 else phrases_draw)
             if 'победителей' in txt or 'проиграли' in txt:
                 print(f'Внимание хозяин!\n{duel_users[0]} и {duel_users[1]} стреляются\nУ них ничья!')
                 self.update_duel_top(duel_users, [1, 1, 0, 0])
@@ -85,7 +66,7 @@ class Utils:
             txt = f"@{login} объявил дуэль на орехомётах. Напиши !дуэль чтобы принять его вызов"
         return txt
 
-    def update_duel_top(self, logins: list, score: list):
+    def update_duel_top(self, logins, score):
         if logins[0] not in self.duel_top:
             self.duel_top[logins[0]] = {'Дуэлей': 0, 'Побед': 0}
         if logins[1] not in self.duel_top:
@@ -98,7 +79,7 @@ class Utils:
     def duel_top3(self):
         top3 = sorted(self.duel_top, key=lambda x: (self.duel_top[x]['Побед'],
                                                     self.duel_top[x]['Дуэлей']),
-                      reverse=True)[0:4]
+                      reverse=True)[0:3]
         result = ''
         for i in top3:
             txt = f'@{i} - Дуэлей: {self.duel_top[i]["Дуэлей"]}, Побед - {self.duel_top[i]["Побед"]}\n'
@@ -119,20 +100,3 @@ class Utils:
             return self.duel_statistic(login)
         else:
             return self.duel(login)
-
-    def UserException(self, ctx):
-        login, message = self.get_login(ctx, mess=True)
-        if login == 'laitru':
-            if ':!удоли' in message:
-                user_exception = message[message.find('и') + 3::]
-                self.BotSet = self.BotSet - set(user_exception)
-                FileManager.WriteBotSet(self.BotSet)
-                print(f'@{user_exception} удалён, файл обновлен')
-                return f'Сделанно, @{user_exception} удалён из списка логинов-исключений'
-            if ':!добавь' in message:
-                user_exception = message[message.find('ь') + 3::]
-                self.BotSet.add(user_exception)
-                FileManager.WriteBotSet(self.BotSet)
-                print(f'@{user_exception} добавлен, файл обновлен')
-                return f'Сделанно, @{user_exception} добавлен в список логинов-исключений'
-        return f'Sorry, @{login}, это системная команда'
